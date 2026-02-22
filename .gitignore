@@ -1,3 +1,6 @@
+# Local storage (never synced to GitHub)
+local/
+
 # Generated output
 review_output/
 
