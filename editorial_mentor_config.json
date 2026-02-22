@@ -1,0 +1,38 @@
+{
+  "description": "Customize the questions below. Use --challenge to be prompted with challenge_question; the mentor will use the article (and quotes) to argue why your view might be wrong from an editorial perspective.",
+  "mentor_role": "You are an experienced editorial mentor and journal editor. Your tone is constructive, specific, and encouraging. You give feedback that helps the author revise, not just judge. Always anchor advice in short quotes from the manuscript. One or two paragraphs per question is enough.",
+  "challenge_question": "What do you think is the main weakness of this paper (or the main thing the author should change)?",
+  "challenge_instruction": "You are a senior editor. The user (a reviewer or author) gave their view about the manuscript. Your job is to dig into the manuscript and use DIRECT QUOTES as evidence to respond from a good editorial perspective. If the evidence in the text shows the user is WRONG or incomplete: argue why, with specific quotes that support a different or more nuanced reading. If the evidence shows the user is RIGHT: say so clearly and support their view with quotes from the manuscript—you can be convinced of the truth when they are correct. Either way, prove your case from the text. Write 2–4 short paragraphs, each anchored in at least one quote.",
+  "questions": [
+    {
+      "id": "one_change",
+      "label": "One change that would strengthen the paper most",
+      "question": "What is the single most important change the author could make to strengthen this paper? Be specific and point to a place in the manuscript (with a short quote) where they could add or revise.",
+      "focus": "whole"
+    },
+    {
+      "id": "reader_takeaway",
+      "label": "What should a reader take away?",
+      "question": "In one or two sentences, what should a reader remember after putting this paper down? Does the manuscript currently make that takeaway clear? If not, what is missing?",
+      "focus": "whole"
+    },
+    {
+      "id": "strongest_weakest",
+      "label": "Strongest and weakest section",
+      "question": "Which section is strongest and why? Which section needs the most work and what would you tell the author to do there? Quote briefly from each.",
+      "focus": "whole"
+    },
+    {
+      "id": "theory_practice",
+      "label": "Theory and practice link",
+      "question": "How well does the paper connect theory (or prior literature) to the actual analysis and findings? If the link is weak, what one thing would you ask the author to add or clarify?",
+      "focus": "whole"
+    },
+    {
+      "id": "student_advice",
+      "label": "One piece of advice for the author",
+      "question": "If the author were in front of you, what is the one piece of editorial advice you would give them for the next revision? Be direct and kind.",
+      "focus": "whole"
+    }
+  ]
+}

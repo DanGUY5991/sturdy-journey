@@ -1,0 +1,29 @@
+# Generated output
+review_output/
+
+# Progress / runtime state
+editor_progress.json
+progress_20-30page.json
+
+# Intermediate artifacts
+Review_Step*.md
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+venv/
+.venv/
+env/
+
+# IDE / editor
+.cursor/
+.vscode/
+*.swp
+*.swo
+
+# Local env
+.env
+.env.local

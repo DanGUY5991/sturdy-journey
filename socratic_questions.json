@@ -1,0 +1,59 @@
+{
+  "description": "Socratic question templates per review stage. The mentor uses these to prompt you to reflect on findings. Add or edit questions; the first in each list is used if the LLM does not generate one.",
+  "stage_1": {
+    "topics": ["formatting", "anonymization", "structure"],
+    "questions": [
+      "The abstract claims one thing but the introduction seems to promise another. Which should the author prioritize, and why?",
+      "This section heading says 'Analysis' but standard journals expect 'Results'. When is it okay to break convention?",
+      "If the paper failed compliance on anonymization, what would you tell the author to check first?"
+    ]
+  },
+  "stage_2": {
+    "topics": ["theme fit", "relevance", "novelty"],
+    "questions": [
+      "The theme fit was rated weak. What one change could most improve the connection to the conference theme?",
+      "How would you help the author sharpen the 'So what?' for practitioners without losing the academic contribution?",
+      "Where do you see the line between 'me-too' work and acceptable replication or extension?"
+    ]
+  },
+  "stage_3": {
+    "topics": ["theory", "gap", "hypotheses"],
+    "questions": [
+      "The author cites Theory A but their hypotheses seem to derive from Theory B. How would you help them resolve this?",
+      "Is the identified gap genuine, or could it be addressed by reframing the contribution?",
+      "What would you ask the author to add to the theory section to strengthen the logical link to the method?"
+    ]
+  },
+  "stage_4": {
+    "topics": ["method", "rigor", "validity"],
+    "questions": [
+      "The method was rated as having major issues. What single fix would most improve validity in your view?",
+      "How would you explain to the author why a convenience sample might undermine their claims?",
+      "If the measures don't quite match the theory, would you ask for new data or a reframed theory? Why?"
+    ]
+  },
+  "stage_5": {
+    "topics": ["clarity", "flow", "tone"],
+    "questions": [
+      "The readability score was low. What one section would you ask the author to rewrite first, and why?",
+      "Where do you see the narrative drifting from the main argument? How would you suggest tightening it?",
+      "How would you help a bilingual author make the English clearer without losing nuance?"
+    ]
+  },
+  "stage_6": {
+    "topics": ["implications", "impact", "recommendation"],
+    "questions": [
+      "The final recommendation was Major Revise. What would need to change for you to move it to Minor Revise?",
+      "The implications are underdeveloped. Would you ask for more practical or more theoretical implications first? Why?",
+      "How would you phrase the one-sentence takeaway for the author so they know exactly what to fix first?"
+    ]
+  },
+  "stage_7": {
+    "topics": ["coherence", "contradictions", "terminology"],
+    "questions": [
+      "The coherence check found contradictions between sections. How would you help the author resolve them without losing content?",
+      "Key terms shift meaning across the paper. Would you standardize definitions in one place or fix each section? Why?",
+      "If the abstract and body don't align, which should drive the revision—the abstract or the body?"
+    ]
+  }
+}

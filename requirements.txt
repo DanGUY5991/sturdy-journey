@@ -1,0 +1,10 @@
+# Core (used by journal_editor_coach.py - 7-stage ASAC review, editorial_mentor_review.py, socratic_mentor.py)
+ollama>=0.1.0
+PyPDF2>=3.0.0
+python-docx>=0.8.11
+rich>=13.0.0
+
+# Optional (used by journal_editor_coach_20-30page.py - 8-section editor coach)
+# Uncomment if you use the 20-30 page script:
+# pymupdf>=1.23.0
+# docx2txt>=0.8
