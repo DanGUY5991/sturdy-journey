@@ -205,6 +205,56 @@ def count_tokens(text: str) -> int:
     """Rough but very reliable estimate for academic English."""
     return int(len(text.split()) * 1.35)
 
+def derive_stage_decision(stage_id: int, result: Dict) -> str:
+    """
+    Derive standardized stage_decision from domain-specific fields when LLM doesn't provide it.
+    Returns one of: PASS, MINOR_REVISION, MAJOR_REVISION, FAIL
+    """
+    if not result:
+        return "MAJOR_REVISION"
+    sd = result.get("stage_decision")
+    if sd and str(sd).upper() in ("PASS", "MINOR_REVISION", "MAJOR_REVISION", "FAIL"):
+        return str(sd).upper().replace(" ", "_")
+    if stage_id == 1:
+        d = str(result.get("decision", "")).upper()
+        return {"PASS": "PASS", "FAIL": "FAIL", "WARNING": "MINOR_REVISION"}.get(d, "MAJOR_REVISION")
+    if stage_id == 2:
+        d = str(result.get("decision", "")).upper().replace(" ", "_")
+        return {"STRONG_FIT": "PASS", "WEAK_FIT": "MINOR_REVISION", "OFF_TOPIC": "FAIL"}.get(d, "MAJOR_REVISION")
+    if stage_id in (3, 4, 5):
+        val = str(result.get(
+            {3: "theoretical_contribution", 4: "method_rigor", 5: "readability_score"}[stage_id], ""
+        )).upper()
+        return {"HIGH": "PASS", "MEDIUM": "MINOR_REVISION", "LOW": "MAJOR_REVISION"}.get(val, "MAJOR_REVISION")
+    if stage_id == 6:
+        rec = str(result.get("final_recommendation", "")).upper()
+        return {"ACCEPT": "PASS", "MINOR_REVISE": "MINOR_REVISION", "MAJOR REVISE": "MAJOR_REVISION",
+                "MAJOR_REVISE": "MAJOR_REVISION", "REJECT": "FAIL"}.get(rec.replace(" ", "_"), "MAJOR_REVISION")
+    if stage_id == 7:
+        score = result.get("coherence_score")
+        if isinstance(score, (int, float)):
+            if score >= 8:
+                return "PASS"
+            if score >= 5:
+                return "MINOR_REVISION"
+            if score >= 3:
+                return "MAJOR_REVISION"
+            return "FAIL"
+        return "MAJOR_REVISION"
+    if stage_id == 8:
+        score = result.get("depth_score")
+        if isinstance(score, (int, float)):
+            if score >= 8:
+                return "PASS"
+            if score >= 5:
+                return "MINOR_REVISION"
+            if score >= 3:
+                return "MAJOR_REVISION"
+            return "FAIL"
+        return "MAJOR_REVISION"
+    return "MAJOR_REVISION"
+
+
 def trim_to_budget(text: str, max_tokens: int = 2800) -> str:
     """Trim text to a token budget, appending a note if truncated."""
     if count_tokens(text) <= max_tokens:
@@ -1124,6 +1174,7 @@ def build_stage_specs() -> List[Dict]:
             **OUTPUT JSON**:
             {
               "decision": "PASS" | "FAIL" | "WARNING",
+              "stage_decision": "PASS" | "MINOR_REVISION" | "MAJOR_REVISION" | "FAIL",
               "paper_structure_map": "For each heading: heading name + 1 sentence on main claim/function of that section. Then 1 sentence: paper's overall argument/contribution.",
               "structure_audit": {
                   "missing_sections": ["list missing"],
@@ -1162,6 +1213,7 @@ You are an ASAC Editor evaluating fit for the 2026 theme: "Blue Sky Thinking: Ha
             **OUTPUT JSON**:
             {
               "decision": "STRONG FIT" | "WEAK FIT" | "OFF TOPIC",
+              "stage_decision": "PASS" | "MINOR_REVISION" | "MAJOR_REVISION" | "FAIL",
               "strengths": [
                 {"point": "Why it fits/is relevant", "quote": "Exact text snippet", "reasoning": "Why this matters", "fix": "N/A or Enhancement"}
               ],
@@ -1201,6 +1253,7 @@ You are an ASAC Editor evaluating the theoretical contribution.
             **OUTPUT JSON**:
             {
               "theoretical_contribution": "High" | "Medium" | "Low",
+              "stage_decision": "PASS" | "MINOR_REVISION" | "MAJOR_REVISION" | "FAIL",
               "strengths": [
                  {"point": "Strong theoretical aspect", "quote": "Exact text snippet", "reasoning": "Why this is good"}
               ],
@@ -1240,6 +1293,7 @@ You are an ASAC Methodology Expert.
             **OUTPUT JSON**:
             {
               "method_rigor": "High" | "Medium" | "Low",
+              "stage_decision": "PASS" | "MINOR_REVISION" | "MAJOR_REVISION" | "FAIL",
               "strengths": [
                  {"point": "Solid methodological choice", "quote": "Text describing the method", "reasoning": "Why this is rigorous"}
               ],
@@ -1278,6 +1332,7 @@ You are an ASAC Copy Editor.
             **OUTPUT JSON**:
             {
               "readability_score": "High" | "Medium" | "Low",
+              "stage_decision": "PASS" | "MINOR_REVISION" | "MAJOR_REVISION" | "FAIL",
               "major_issues": [
                 {"point": "Grammar/Style issue", "quote": "Example of the bad writing", "reasoning": "Why it's unclear", "fix": "Suggested rewrite"}
               ],
@@ -1315,6 +1370,7 @@ You are the ASAC Division Chair making a final recommendation.
             **OUTPUT JSON**:
             {
               "final_recommendation": "ACCEPT" | "MINOR REVISE" | "MAJOR REVISE" | "REJECT",
+              "stage_decision": "PASS" | "MINOR_REVISION" | "MAJOR_REVISION" | "FAIL",
               "impact_score": 1-5,
               "impact_summary": "2-3 sentences on the paper's value and whether it tells one coherent story.",
               "strengths": [
@@ -1354,6 +1410,7 @@ For every contradiction or issue, you MUST reference which stage(s) and what was
 **OUTPUT JSON**:
 {
   "coherence_score": 1-10,
+  "stage_decision": "PASS" | "MINOR_REVISION" | "MAJOR_REVISION" | "FAIL",
   "structure_coherence": "1-2 sentences: Does the paper tell one coherent story?",
   "contradictions": [
     {"quote_a": "Exact or paraphrased finding from one stage", "quote_b": "Conflicting finding from another", "issue": "Why this is a contradiction"}
@@ -1370,10 +1427,57 @@ For every contradiction or issue, you MUST reference which stage(s) and what was
             "name": "Reflector & Depth Critic",
             "section_keys": ["ALL"],
             "max_input_tokens": 6000,
-            "system_prompt": """You are the Referee who reads the entire blackboard and challenges weak or shallow findings.
-For every major finding from previous agents, ask: "Is this deep enough for an ASAC editor? What evidence is missing?"
-Then write improved, deeper versions and post them back to the blackboard.
-Output JSON with "improved_findings" list."""
+            "system_prompt": """IMPORTANT: You have already seen this Paper Structure Map from the desk screen:
+{STRUCTURE_MAP_PLACEHOLDER}
+
+You are a senior ASAC referee performing a final depth review of all stage findings. Your job is to challenge weak or shallow analysis and ensure the review is rigorous enough for editorial decision-making.
+
+**CRITERIA**:
+1. **Evidence Quality**: Are quotes sufficient, accurate, and fairly represented? (max 35 words each)
+2. **Reasoning Depth**: Does each finding explain WHY it matters editorially, not just WHAT the issue is?
+3. **Blind Spots**: What did previous stages miss, under-analyze, or gloss over?
+4. **Actionability**: Are recommendations specific enough for the author to act on?
+5. **Consistency**: Do findings across stages tell a coherent story, or do they contradict?
+
+**PROCESS**:
+1. Review each stage's major findings (strengths, major_issues, violations, recommendations)
+2. For any finding that is shallow, missing evidence, or underspecified:
+   - Quote the original finding
+   - Explain what's missing or weak
+   - Provide an improved, deeper version with better evidence
+3. Identify topics completely missed by all stages
+4. Give a final verdict on whether this review is rigorous enough
+
+**OUTPUT JSON**:
+{
+  "depth_score": 1-10,
+  "stage_decision": "PASS" | "MINOR_REVISION" | "MAJOR_REVISION" | "FAIL",
+  "stage_reviews": [
+    {
+      "stage_id": 1,
+      "stage_name": "Compliance & Formatting",
+      "original_finding": "Quote or paraphrase from the stage output",
+      "weakness": "Why this finding is shallow or incomplete",
+      "improved_finding": "Deeper, more rigorous version with specific evidence",
+      "priority": "HIGH | MEDIUM | LOW"
+    }
+  ],
+  "overall_blind_spots": [
+    "Topics or issues completely missed by all stages"
+  ],
+  "cross_stage_contradictions": [
+    {
+      "stage_a": "Stage name A",
+      "stage_b": "Stage name B",
+      "contradiction": "Description of how they conflict"
+    }
+  ],
+  "actionable_improvements": [
+    "Specific ways to strengthen the review"
+  ],
+  "final_editorial_verdict": "One paragraph summarizing whether this review meets ASAC editorial standards and what the overall assessment of the manuscript should be"
+}
+"""
         }
     ]
     # Note: THINKING_PROTOCOL is injected automatically in _inject_structure_map()
@@ -1543,6 +1647,7 @@ def generate_professional_report(results: List[Dict], base_name: str, filepath: 
     s5 = results[4] if len(results) > 4 else {}
     s6 = results[5] if len(results) > 5 else {}
     s7 = results[6] if len(results) > 6 else {}
+    s8 = results[7] if len(results) > 7 else {}
 
     compliance_pass = s1.get("decision", "FAIL") == "PASS"
     if not compliance_pass:
@@ -1574,6 +1679,19 @@ def generate_professional_report(results: List[Dict], base_name: str, filepath: 
             f.write(f"{structure_map}\n\n")
 
         f.write(f"**Executive Summary**\n{s6.get('impact_summary', 'Promising work requiring structural fixes.')}\n\n")
+
+        # Stage Decisions Summary (standardized across all stages)
+        stage_names = [
+            "1. Compliance", "2. Theme Fit", "3. Theory", "4. Methodology",
+            "5. Readability", "6. Implications", "7. Coherence", "8. Depth Critic"
+        ]
+        f.write("**Stage Decisions** (standardized: PASS | MINOR_REVISION | MAJOR_REVISION | FAIL)\n")
+        stage_results = [s1, s2, s3, s4, s5, s6, s7, s8]
+        for i, (name, stage) in enumerate(zip(stage_names, stage_results), 1):
+            if stage:
+                sd = derive_stage_decision(i, stage)
+                f.write(f"• {name}: {sd}\n")
+        f.write("\n")
 
         f.write("**1. Compliance & Formatting (Desk Screen)**\n")
         f.write(f"• **Status**: {s1.get('decision', 'FAIL')}\n")
@@ -1646,6 +1764,24 @@ def generate_professional_report(results: List[Dict], base_name: str, filepath: 
                 f.write("• **Recommendations**: " + "; ".join(s7["actionable_recommendations"][:3]) + "\n")
             f.write("\n")
 
+        if s8:
+            f.write("**8. Reflector & Depth Critic** (Review Quality Check)\n")
+            f.write(f"• **Depth Score**: {s8.get('depth_score', '—')}/10\n")
+            if s8.get("final_editorial_verdict"):
+                f.write(f"• **Final Editorial Verdict**: {s8['final_editorial_verdict']}\n")
+            if s8.get("overall_blind_spots"):
+                f.write("• **Blind Spots Identified**:\n")
+                for b in s8["overall_blind_spots"][:5]:
+                    f.write(f"  - {b}\n")
+            if s8.get("actionable_improvements"):
+                f.write("• **Suggested Review Improvements**: " + "; ".join(s8["actionable_improvements"][:3]) + "\n")
+            if s8.get("stage_reviews"):
+                f.write("• **Depth Critiques** (shallow findings improved):\n")
+                for sr in s8["stage_reviews"][:3]:
+                    if isinstance(sr, dict):
+                        f.write(f"  - Stage {sr.get('stage_id', '?')}: {sr.get('weakness', '')[:120]}...\n")
+            f.write("\n")
+
         f.write("**Prioritized Revision Plan** (do in this order)\n")
         f.write("1. **IMMEDIATE (7–10 days)**: Fix all compliance issues + relabel sections correctly.\n")
         for i, rec in enumerate(s3.get("actionable_recommendations", [])[:3], 2):
@@ -1668,7 +1804,7 @@ def generate_professional_report(results: List[Dict], base_name: str, filepath: 
             f.write("## Reasoning Trails & Agent Thinking\n\n")
             f.write("This section shows the multi-pass thinking process used by each agent.\n\n")
             
-            for idx, stage in enumerate(results[:7], 1):
+            for idx, stage in enumerate(results[:8], 1):
                 stage_name = stage.get("stage_name", f"Stage {idx}")
                 f.write(f"### {stage_name}\n\n")
                 
@@ -1745,6 +1881,7 @@ def generate_evidence_trail_report(results: List[Dict], base_name: str, filepath
         "Readability & Writing Quality",
         "Implications & Overall Impact",
         "Coherence & Cross-Section Consistency",
+        "Reflector & Depth Critic",
     ]
     with open(md_out, "w", encoding="utf-8") as f:
         f.write("# ASAC Evidence Trail — Editor Perspective\n\n")
@@ -1779,10 +1916,36 @@ def generate_evidence_trail_report(results: List[Dict], base_name: str, filepath
                         f.write(f"- **Fix**: {fix}\n\n")
                     f.write("\n")
 
-            write_finding("Strengths", stage.get("strengths", []), "strength")
-            write_finding("Violations", stage.get("violations", []), "major")
-            write_finding("Major issues", stage.get("major_issues", []), "major")
-            write_finding("Minor issues", stage.get("minor_issues", []), "minor")
+            # Stage 8 (Reflector & Depth Critic) has different structure
+            if idx == 7:
+                f.write(f"**Depth Score**: {stage.get('depth_score', '—')}/10\n\n")
+                if stage.get("final_editorial_verdict"):
+                    f.write(f"**Final Editorial Verdict**: {stage['final_editorial_verdict']}\n\n")
+                if stage.get("overall_blind_spots"):
+                    f.write("**Blind Spots** (topics missed by all stages):\n")
+                    for b in stage["overall_blind_spots"][:5]:
+                        f.write(f"- {b}\n")
+                    f.write("\n")
+                if stage.get("stage_reviews"):
+                    f.write("**Depth Critiques** (findings improved):\n")
+                    for sr in stage["stage_reviews"]:
+                        if isinstance(sr, dict):
+                            f.write(f"- **Stage {sr.get('stage_id')}**: {sr.get('original_finding', '')[:150]}...\n")
+                            f.write(f"  Weakness: {sr.get('weakness', '')[:200]}...\n")
+                            f.write(f"  Improved: {sr.get('improved_finding', '')[:200]}...\n\n")
+                if stage.get("cross_stage_contradictions"):
+                    f.write("**Cross-Stage Contradictions**:\n")
+                    for c in stage["cross_stage_contradictions"][:3]:
+                        if isinstance(c, dict):
+                            f.write(f"- {c.get('stage_a')} vs {c.get('stage_b')}: {c.get('contradiction', '')[:150]}...\n")
+                    f.write("\n")
+                if stage.get("actionable_improvements"):
+                    f.write("**Actionable Improvements**: " + "; ".join(stage["actionable_improvements"][:3]) + "\n\n")
+            else:
+                write_finding("Strengths", stage.get("strengths", []), "strength")
+                write_finding("Violations", stage.get("violations", []), "major")
+                write_finding("Major issues", stage.get("major_issues", []), "major")
+                write_finding("Minor issues", stage.get("minor_issues", []), "minor")
 
             if stage.get("connection_analysis"):
                 f.write(f"**Connection to other sections**: {stage['connection_analysis']}\n\n")
